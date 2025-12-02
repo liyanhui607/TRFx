@@ -1,0 +1,3 @@
+./trf409.linux64 hg002_test.fasta 2 5 7 80 10 50 2000 -h -ngs > original_TRF.out
+./TRFX2/TRF      hg002_test.fasta 2 5 7 80 10 50 2000 -t 1 > trfx2_thread1.out 
+./TRFX2/TRF      hg002_test.fasta 2 5 7 80 10 50 2000 -t 4 > trfx2_thread4.out 
