@@ -53,7 +53,7 @@ Use all default parameters except threads
 
 Custom parameters for specific analysis
 
-`./trfx genome.fa -a 2 -b 7 -d 7 -m 80 -i 10 -s 100 -p 500 -t 20 > output.txt`
+`./trfx genome.fa -a 2 -b 7 -d 7 -m 80 -i 10 -s 50 -p 2000 -t 20 > output.txt`
 
 
 
@@ -61,7 +61,7 @@ Custom parameters for specific analysis
 
 Default: 'trfx inputFile -a 2 -b 7 -d 7 -m 80 -i 10 -s 50 -p 2000 -t 3'
 
-Default is OK in most time , So simply use: ./trfx ./inputFile -t 8 (number of threads)
+Default is good in most time , So simply use: ./trfx inputFile -t 8 (number of threads)
 
 Where: (all weights, penalties, and scores are positive)
 
