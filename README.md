@@ -149,5 +149,7 @@ We welcome contributions! Please feel free to submit issues, feature requests, o
 
 ## License
 GNU Affero General Public License v3.0 (AGPL-3.0)
+
 Any restrictions to use by non-academics: None. The software is provided under the terms of the AGPL-3.0, which permits unrestricted use, including for commercial purposes, provided all distribution conditions of the license are met. For inquiries regarding alternative licensing arrangements (e.g., for proprietary integration), please contact the corresponding author.
+
 TRFx is an open-source, optimized derivative work based on the original Tandem Repeats Finder (TRF) software by Benson et al. In compliance with the AGPL-3.0 license under which TRF is distributed, TRFx is released under the same license terms. The source code repository on GitHub contains the full codebase, comprehensive build instructions (via Makefile), detailed documentation, and example datasets to ensure full reproducibility and to facilitate community adoption, use, and further development.
