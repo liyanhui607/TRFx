@@ -32,7 +32,6 @@ This will:
 ✅ Save results to output.txt
 
 
-
 ## Installation
 ```
 git clone https://github.com/your_username/TRFx.git
@@ -43,7 +42,22 @@ make
 
 ```
 
-## Usage
+## Usage examples
+Use all default parameters except threads
+
+`./trfx input.fasta -t 20`
+
+ Quick analysis with minimal parameters
+ 
+`./trfx reads.fastq -t 8 > results.txt`
+
+Custom parameters for specific analysis
+
+`./trfx genome.fa -a 2 -b 7 -d 7 -m 80 -i 10 -s 100 -p 500 -t 20 > output.txt`
+
+
+
+## Parameters
 
 Default: 'trfx inputFile -a 2 -b 7 -d 7 -m 80 -i 10 -s 50 -p 2000 -t 3'
 
@@ -72,21 +86,6 @@ Where: (all weights, penalties, and scores are positive)
   -t INT     number of threads [3]
   
   -V         show version number
-    
-
-## Examples
-Use all default parameters except threads
-
-`./trfx input.fasta -t 20`
-
- Quick analysis with minimal parameters
- 
-`./trfx reads.fastq -t 8 > results.txt`
-
-Custom parameters for specific analysis
-
-`./trfx genome.fa -a 2 -b 7 -d 7 -m 80 -i 10 -s 100 -p 500 -t 20 > output.txt`
-
 
 
 ## Frequently Asked Questions
@@ -114,18 +113,26 @@ TRFx accelerates TRF through three key optimizations:
 1. Multi-threaded Pipeline Architecture
    
 I/O-Compute Overlap: Parallel data reading, processing, and writing
+
 Work Stealing: Dynamic load balancing across threads
+
 Bulk Data Loading: Reads large blocks (10GB+) to minimize disk I/O
+
 
 2. CPU Optimizations
    
 Memory Access Patterns: 16 separate arrays for 2-mer processing
+
 Dynamic Memory Reshaping: On-demand S-array column allocation
+
 Modulo Operation Replacement: Conditional logic for expensive divisions
+
 
 3. Hybrid CPU/GPU Acceleration
 Smart Workload Distribution: Sequences >4000bp automatically routed to GPU
+
 Shared Memory Optimization: Local histogram accumulation reduces global memory contention
+
 Adaptive Block Sizing: CUDA occupancy API for optimal GPU utilization
 
 
