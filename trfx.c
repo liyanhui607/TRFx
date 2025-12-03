@@ -48,7 +48,7 @@ size_t get_available_memory() {
 
 size_t get_optimal_batch_size(const char *filename) {
     size_t free_mem = get_available_memory();
-    size_t max_mem = 10 * 1024 * 1024 * 1024L; // 1000G
+    size_t max_mem = 1000 * 1024 * 1024 * 1024L; // 1000G
     size_t min_batch = 100 * 1024 *1024; // 最小100M
     size_t safe_batch = (free_mem * 0.5); // 使用50%内存
 
