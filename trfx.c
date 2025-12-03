@@ -8,10 +8,8 @@
 #include "trfx.h"
 #include "misc.c"
 #include "bseq.h"
-//#include "tr30dat.h"
 
 #define min(a, b) (((a) <= (b)) ? (a) : (b))
-//extern int count = 0;
 extern  void init_d_index();
 
 #define TRFx_VERSION "TRFx1.0"
@@ -50,12 +48,9 @@ size_t get_available_memory() {
 
 size_t get_optimal_batch_size(const char *filename) {
     size_t free_mem = get_available_memory();
-    size_t max_mem = 100 * 1024 * 1024 * 1024L; // 100G
-    size_t min_batch = 100000000; // 最小100M
+    size_t max_mem = 10 * 1024 * 1024 * 1024L; // 1000G
+    size_t min_batch = 100 * 1024 *1024; // 最小100M
     size_t safe_batch = (free_mem * 0.5); // 使用50%内存
-
-    //fprintf(stderr, "free_mem: %zu bytes (%.2f GB)\n", free_mem, free_mem / 1024.0 / 1024 / 1024);
-    //fprintf(stderr, "safe_batch: %zu bytes (%.2f GB)\n", safe_batch, safe_batch / 1024.0 / 1024 / 1024);
 
     // 添加错误检查
     if (free_mem == 0) {
@@ -79,28 +74,17 @@ size_t get_optimal_batch_size(const char *filename) {
     
     // 添加下限保护
     if (batch_size < min_batch) {
-        fprintf(stderr, "Warning: Calculated batch size too small, using minimum batch size\n");
         batch_size = min_batch;
     }
     
-   // fprintf(stderr, "Final batch size: %zu bytes (%.2f GB)\n", batch_size, batch_size / 1024.0 / 1024 / 1024);
     return batch_size;
 }
 
-
-
-// size_t get_optimal_batch_size() {
-//     size_t free_mem = get_available_memory(); // 需要实现获取可用内存的函数
-//     size_t safe_batch = (free_mem * 0.7);// / (n_threads * sizeof(bseq1_t)); // 使用70%内存
-//     return min(safe_batch, 1000000000); // 上限10亿
-// }
 
 int main(int argc, char *argv[])
 {
     // 初始化默认值和选项
     int n_threads = 3;
-   // int tbatch_size = 1000000000;//1000M  bp
-  //  long tbatch_size = get_optimal_batch_size();
     liftrlimit();
     mm_realtime0 = realtime();
 
@@ -155,11 +139,10 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-
     // 获取第一个输入文件名并计算最优批处理大小
     const char *input_filename = argv[optind];
     size_t tbatch_size = get_optimal_batch_size(input_filename);
-    fprintf(stderr, "tbatch_size:  (%.2f GB)\n", tbatch_size / 1024.0 / 1024 / 1024);
+    fprintf(stderr, "batch_size:  (%.2f GB)\n", tbatch_size / 1024.0 / 1024 / 1024);
 
     // 初始化只读变量
     readonly_vars_struct ro_vars;

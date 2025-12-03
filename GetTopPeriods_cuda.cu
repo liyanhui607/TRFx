@@ -1,4 +1,6 @@
-// GetTopPeriods_cuda.cu - CUDA-accelerated version with global memory only
+// GetTopPeriods_cuda.cu - CUDA-accelerated version with auto-tuned block size
+// Fixed: Avoids "goto bypasses initialization" errors by separating declaration and initialization
+// GetTopPeriods_cuda.cu - CUDA-accelerated version with auto-tuned block size
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +19,7 @@ __global__ void updateCountsKernel(
     int mer2 = blockIdx.x;
     if (mer2 >= 16 || d_num[mer2] == 0) return;
 
+    extern __shared__ int s_counts[];
     int tid = threadIdx.x;
     int num_threads = blockDim.x;
 
@@ -24,15 +27,29 @@ __global__ void updateCountsKernel(
     int base = d_offsets[mer2];
     const int *history = d_flat_history + base;
 
-    // 直接使用全局内存计算距离计数（不再使用共享内存）
+    // shared memory
+    for (int i = tid; i < MAX_DIST; i += num_threads) {
+        s_counts[i] = 0;
+    }
+    __syncthreads();
+
+    // count
     for (int idx = tid; idx < num; idx += num_threads) {
         int current_pos = history[idx];
         int j = idx - 1;
         while (j >= 0) {
             int dist = current_pos - history[j];
             if (dist >= MAX_DIST || dist <= 0) break;
-            atomicAdd(&d_counts[dist], 1);
+            atomicAdd(&s_counts[dist], 1);
             j--;
+        }
+    }
+    __syncthreads();
+
+    // global memory
+    for (int i = tid; i < MAX_DIST; i += num_threads) {
+        if (s_counts[i] > 0) {
+            atomicAdd(&d_counts[i], s_counts[i]);
         }
     }
 }
@@ -49,7 +66,7 @@ extern "C" int GetTopPeriods_cuda(
     int h_Index[256],
     int MAXDISTANCE
 ) {
-    // === 提前声明所有变量 ===
+    // ===  ===
     int *h_counts = NULL;
     double *h_counts2 = NULL;
     int *h_num = NULL;
@@ -66,11 +83,12 @@ extern "C" int GetTopPeriods_cuda(
     // --- CUDA occupancy tuning variables ---
     int minGridSize = 0;
     int blockSize = 0;
-    int gridSize = 16; // 固定为16，对应16种2-mer类型
+    size_t dynamicSMemSize = MAX_DIST * sizeof(int);
+    int gridSize = 16; 
 
     const int valid_length = length - 2;
 
-    // === detrend 相关变量 ===
+    // === detrend vars ===
     double xysum = 0.0, xsum = 0.0, ysum = 0.0, x2sum = 0.0;
     double n = 0.0, denom = 0.0, slope = 0.0;
     int end = 0;
@@ -109,7 +127,7 @@ extern "C" int GetTopPeriods_cuda(
     if (!h_flat_history) goto cleanup;
 
     // === Fill flat history ===
-    memset(h_num, 0, 16 * sizeof(int)); // 重置计数器
+    memset(h_num, 0, 16 * sizeof(int)); // 
 
     for (int i = 0; i <= valid_length; ++i) {
         int c1 = h_Index[h_pattern[i]];
@@ -147,26 +165,25 @@ extern "C" int GetTopPeriods_cuda(
     err = cudaMemcpy(d_num, h_num, 16 * sizeof(int), cudaMemcpyHostToDevice);
     if (err != cudaSuccess) goto cleanup;
 
-    // === 自动优化：计算最优 block size（不再需要共享内存）===
+    // === block size ===
     err = cudaOccupancyMaxPotentialBlockSize(
-        &minGridSize,           // 输出：最小 grid size
-        &blockSize,             // 输出：最优 block size
-        updateCountsKernel,     // kernel 函数
-        0,                      // 动态共享内存大小为0
-        0                       // block size 无上限
+        &minGridSize,           // grid size
+        &blockSize,             //  block size
+        updateCountsKernel,     // kernel 
+        dynamicSMemSize,        // shared memory 
+        0                       // block size 
     );
     if (err != cudaSuccess) goto cleanup;
 
-    // 可选：限制最大 block size 为1024（根据kernel的设计）
+    // block size 为1024（根据kernel的设计）
     if (blockSize > 1024) {
         blockSize = 1024;
     }
 
-    // 调试输出（发布时可注释）
-    // printf("CUDA: block=%d, grid=%d, global memory only\n", blockSize, gridSize);
+    // // printf("CUDA: block=%d, grid=%d, smem=%zu bytes\n", blockSize, gridSize, dynamicSMemSize);
 
-    // === Launch kernel（不再分配共享内存）===
-    updateCountsKernel<<<gridSize, blockSize, 0>>>(
+    // === Launch kernel ===
+    updateCountsKernel<<<gridSize, blockSize, dynamicSMemSize>>>(
         d_flat_history, d_offsets, d_num, d_counts, valid_length
     );
 
@@ -214,14 +231,14 @@ extern "C" int GetTopPeriods_cuda(
     err = cudaSuccess;
 
 cleanup:
-    // === 释放 host 内存 ===
+    // === free  host mem ===
     if (h_counts) free(h_counts);
     if (h_counts2) free(h_counts2);
     if (h_num) free(h_num);
     if (h_offsets) free(h_offsets);
     if (h_flat_history) free(h_flat_history);
 
-    // === 释放 device 内存 ===
+    // === free device mem ===
     cudaFree(d_flat_history);
     cudaFree(d_offsets);
     cudaFree(d_num);
@@ -229,3 +246,4 @@ cleanup:
 
     return (err == cudaSuccess) ? 0 : 1;
 }
+

@@ -7,9 +7,7 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-//
-//
-//
+
 extern unsigned char seq_nt4_table[256];
 
 struct bseq_file_s
@@ -112,11 +110,7 @@ bseq1_t *bseq_read(bseq_file_t *fp, long chunk_size, int *n_)
 		}
 		s = &seqs[n];
 		s->name = (unsigned char *) strdup((char *)ks->name.s);
-
-		//printf("name: %s\n", ks->name.s);
-
-		// s->seq = strdup(ks->seq.s);
-		// s->l_seq = ks->seq.l;   
+  
 		s->seq = remove_spaces(ks->seq.s, &s->l_seq); // get seq and length
 		size += seqs[n++].l_seq;
 		if (size >= chunk_size)

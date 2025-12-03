@@ -1,7 +1,0 @@
-sudo perf record -e cycles:pp,instructions:pp -F 99 -g  ../trfx data10000.fasta  -t 30
-sudo perf report
-sudo perf annotate narrowbandwrap
-
-sudo perf record -F 700 -e cycles,instructions,cache-references,cache-misses,L1-dcache-load-misses,LLC-load-misses ../trfx data10000.fasta -t 20 > r2.txt
-
-

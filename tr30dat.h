@@ -56,10 +56,6 @@ License along with TRF.  If not, see <https://www.gnu.org/licenses/>.
 #define NUMBER_OF_PERIODS_TO_TEST 3			   /* only test 3 best periods for multiples test */
 #define NUMBER_OF_PERIODS_INTO_SORTMULTIPLES 5 /* added 5/25/05 for compatibility with bestperiodslist */
 
-// only used for cuda 
-//int Index_cuda[256];
-//int MAXDISTANCE_cuda = 500;
-
 
 #define max(a, b) (((a) >= (b)) ? (a) : (b))
 #define min(a, b) (((a) <= (b)) ? (a) : (b))
@@ -78,10 +74,6 @@ __attribute__((always_inline)) static inline int max4(int a, int b, int c, int d
     return (t1 > t2) ? t1 : t2;
 }
 
-
-
-
-
 #define fill_align_pair(c1, c2, l, i, j) do { \
     pairalign * const _ap = pAlignPair; \
     const int _l = (l); \
@@ -90,8 +82,6 @@ __attribute__((always_inline)) static inline int max4(int a, int b, int c, int d
     _ap->indexprime[_l] = (i); \
     _ap->indexsecnd[_l] = (j); \
 } while (0)
-
-
 
 
 struct index_list_struct
