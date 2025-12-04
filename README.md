@@ -1,7 +1,7 @@
 # TRFx: Accelerating Tandem Repeat Finder with Multithreading and GPU for Third-Generation Sequencing Data
 50x faster TRF for modern genomics | Strict output consistency | GPU acceleration | Multi-threading
 
-TRFx is a highly optimized, parallel version of the legendary Tandem Repeat Finder (TRF)4.10, designed to overcome the computational bottleneck of the original algorithm in the era of third-generation sequencing (TGS) data. It achieves 50x speedups​ on standard servers, reducing the analysis of human-scale TGS datasets from weeks down to hours, while maintaining strict output consistency with the original TRF.
+TRFx is a highly optimized, parallel version of the legendary Tandem Repeat Finder ([TRF4.10](https://github.com/liyanhui607/TRF4.10)), designed to overcome the computational bottleneck of the original algorithm in the era of third-generation sequencing (TGS) data. It achieves 50x speedups​ on standard servers, reducing the analysis of human-scale TGS datasets from weeks down to hours, while maintaining strict output consistency with the original TRF.
 
 
 ## Environment:
@@ -104,6 +104,10 @@ A: No. Significant speedups (20-30x) are achievable with CPU threads alone. GPU 
 Q: When should I adjust parameters?
 
 A: Only if you need specific sensitivity tuning for specialized analyses.
+
+Q: Where could I find the original TRF4.10?
+
+A: [TRF4.10](https://github.com/liyanhui607/TRF4.10) can be found here: https://github.com/liyanhui607/TRF4.10.
 
 
 
