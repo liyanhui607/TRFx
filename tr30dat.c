@@ -2269,7 +2269,7 @@ int multiples_criteria_4(int found_d, thread_local_var_struct *pthread_local_var
 	// 缓存结构体成员和常量
 	unsigned char *Sequence = pthread_local_var->Sequence;
 	int *Index = ro_vars->Index;
-	//const int maxdistance = pthread_local_var->maxdistance;
+	const int maxdistance = pthread_local_var->maxdistance;
 
 	// 计算通用的 lowerindex 和 upperindex
 	int lowerindex = pAlignPair->indexprime[pAlignPair->length];
