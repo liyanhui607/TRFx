@@ -1,0 +1,8 @@
+cd ..
+make clean; 
+make
+cd test
+
+/usr/bin/time -v ../trfx input.fasta  -a 2 -b 7 -d 7 -m 80 -i 10 -s 50 -p 2000 -t 20 >output.txt
+
+
