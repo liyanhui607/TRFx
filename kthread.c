@@ -6,12 +6,12 @@
 //#include <pthread.h>
 
 
-void bind_thread(pthread_t thread, int core_id) {
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(core_id, &cpuset);
-    pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset); // 绑定线程到核心
-}
+//void bind_thread(pthread_t thread, int core_id) {
+ //   cpu_set_t cpuset;
+  //  CPU_ZERO(&cpuset);
+   // CPU_SET(core_id, &cpuset);
+    //pthread_setaffinity_np(thread, sizeof(cpuset), &cpuset); // 绑定线程到核心
+//}
 
 /************
  * kt_for() *
@@ -76,7 +76,7 @@ void kt_for(int n_threads, void (*func)(void*,long,int), void *data, long n)
 	tid = (pthread_t*)alloca(n_threads * sizeof(pthread_t));
 	for (i = 0; i < n_threads; ++i)
 		t.w[i].t = &t, t.w[i].i = i;
-	for (i = 0; i < n_threads; ++i)  { pthread_create(&tid[i], 0, ktf_worker, &t.w[i]); bind_thread(tid[i], i); } //pthread_create(&tid[i], 0, ktf_worker, &t.w[i]); //
+	for (i = 0; i < n_threads; ++i)  { pthread_create(&tid[i], 0, ktf_worker, &t.w[i]) ;} //; //pthread_create(&tid[i], 0, ktf_worker, &t.w[i]); bind_thread(tid[i], i);
 	for (i = 0; i < n_threads; ++i) pthread_join(tid[i], 0);
 }
 
