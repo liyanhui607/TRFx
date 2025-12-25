@@ -126,37 +126,80 @@ else
     ENABLE_CUDA = 0
 endif
 
-# 4. Enhanced diagnostic output with clear build intention
-ifneq ($(MAKECMDGOALS),clean)
-$(info ===========================================)
-$(info Operating System: $(UNAME_S))
-$(info 🔍 GPU Environment Detection Report)
-$(info ===========================================)
-$(info NVIDIA Driver: $(if $(filter 1,$(GPU_DRIVER_PRESENT)),✅,❌))
-$(info CUDA Compiler: $(if $(filter 1,$(NVCC_AVAILABLE)),✅,❌))
-$(info CUDA Headers: $(if $(filter 1,$(CUDA_HEADERS_PRESENT)),✅,❌))
-$(info CUDA Libraries: $(if $(filter 1,$(CUDA_LIBS_PRESENT)),✅,❌))
-$(info -------------------------------------------)
-
-# Always build at least one version
-ifneq ($(ENABLE_CUDA),1)
-$(info 🚨 GPU support not available, building CPU version)
-$(info 💡 To enable GPU support:)
-$(info   • Install NVIDIA drivers and CUDA Toolkit)
-$(info   • Or use 'make gpu' to try GPU version anyway)
-else
-$(info ✅ GPU support available, building GPU-accelerated version)
-$(info 🎯 Detected GPU Architecture: $(NVCC_FLAGS))
-$(info 💡 Use 'make cpu' to force CPU-only version)
-endif
-$(info ===========================================)
+# 检查是否是递归调用
+ifndef RECURSIVE_MAKE
+    # 4. Enhanced diagnostic output with clear build intention
+    ifneq ($(MAKECMDGOALS),clean)
+    ifneq ($(MAKECMDGOALS),info)
+    ifneq ($(MAKECMDGOALS),help)
+    ifneq ($(MAKECMDGOALS),gpu-info)
+    $(info ===========================================)
+    $(info Operating System: $(UNAME_S))
+    $(info 🔍 GPU Environment Detection Report)
+    $(info ===========================================)
+    $(info NVIDIA Driver: $(if $(filter 1,$(GPU_DRIVER_PRESENT)),✅,❌))
+    $(info CUDA Compiler: $(if $(filter 1,$(NVCC_AVAILABLE)),✅,❌))
+    $(info CUDA Headers: $(if $(filter 1,$(CUDA_HEADERS_PRESENT)),✅,❌))
+    $(info CUDA Libraries: $(if $(filter 1,$(CUDA_LIBS_PRESENT)),✅,❌))
+    $(info -------------------------------------------)
+    
+    # Check if user explicitly requested CPU or GPU version
+    ifneq (,$(findstring cpu,$(MAKECMDGOALS)))
+        $(info 🎯 User explicitly requested CPU version)
+        $(info 🔧 GPU will be disabled for this build)
+    else ifneq (,$(findstring gpu,$(MAKECMDGOALS)))
+        $(info 🎯 User explicitly requested GPU version)
+        ifeq ($(GPU_DRIVER_PRESENT)$(HAS_CUDA_DEVELOPMENT_ENV), 11)
+            $(info ✅ Building GPU-accelerated version as requested)
+            $(info 🎯 Detected GPU Architecture: $(NVCC_FLAGS))
+        else
+            $(info ❌ GPU version requested but GPU not available)
+            $(info 💡 Falling back to CPU version)
+        endif
+    else
+        # Auto-detection for default build
+        ifeq ($(ENABLE_CUDA),1)
+            $(info ✅ GPU support available, building GPU-accelerated version)
+            $(info 🎯 Detected GPU Architecture: $(NVCC_FLAGS))
+            $(info 💡 Use 'make cpu' to force CPU-only version)
+        else
+            $(info 🚨 GPU support not available, building CPU version)
+            $(info 💡 To enable GPU support:)
+            $(info   • Install NVIDIA drivers and CUDA Toolkit)
+            $(info   • Or use 'make gpu' to try GPU version anyway)
+        endif
+    endif
+    $(info ===========================================)
+    endif
+    endif
+    endif
+    endif
 endif
 
 # ============================================================================
-# Build Configuration - Always produce executable
+# Build Configuration - Allow explicit CPU/GPU selection
 # ============================================================================
 
-# Default to CPU version if GPU detection fails, but allow explicit GPU build
+# Check if user explicitly requested CPU or GPU version
+USER_REQUESTED_CPU := $(if $(findstring cpu,$(MAKECMDGOALS)),1,0)
+USER_REQUESTED_GPU := $(if $(findstring gpu,$(MAKECMDGOALS)),1,0)
+
+# If user explicitly requested CPU, disable CUDA
+ifeq ($(USER_REQUESTED_CPU),1)
+    ENABLE_CUDA = 0
+    $(info 🔧 Forcing CPU-only build as requested...)
+# If user explicitly requested GPU, check if it's available
+else ifeq ($(USER_REQUESTED_GPU),1)
+    ifeq ($(GPU_DRIVER_PRESENT)$(HAS_CUDA_DEVELOPMENT_ENV), 11)
+        ENABLE_CUDA = 1
+        $(info 🔧 Forcing GPU build as requested...)
+    else
+        ENABLE_CUDA = 0
+        $(warning ⚠️ GPU version requested but GPU not available, falling back to CPU)
+    endif
+endif
+
+# Final configuration based on ENABLE_CUDA
 ifeq ($(ENABLE_CUDA),1)
     # GPU version configuration
     OBJS = kthread.o bseq.o map.o trfx.o GetTopPeriods_cuda.o
@@ -179,7 +222,7 @@ ifeq ($(ENABLE_CUDA),1)
         RPATH_FLAG = -Wl,-rpath,$(CUDA_LIB_PATH)
     endif
 else
-    # CPU version configuration (fallback)
+    # CPU version configuration
     OBJS = kthread.o bseq.o map.o trfx.o
     INCLUDES = 
     CFLAGS += -DNO_GPU
@@ -217,35 +260,16 @@ $(PROG): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS) $(RPATH_FLAG)
 	@echo "✅ Build completed: $(PROG) ($(if $(filter 1,$(ENABLE_CUDA)),GPU-accelerated,CPU) version) - Built with GCC"
 
-# Build GPU version (explicitly specified)
-gpu: 
-	@if [ "$(GPU_DRIVER_PRESENT)" = "0" ]; then \
-		echo "❌ Cannot build GPU version: NVIDIA driver not found"; \
-		echo "💡 Building CPU version instead..."; \
-		$(MAKE) cpu; \
-	elif [ "$(NVCC_AVAILABLE)" = "0" ]; then \
-		echo "❌ Cannot build GPU version: nvcc compiler not found"; \
-		echo "💡 Building CPU version instead..."; \
-		$(MAKE) cpu; \
-	elif [ "$(CUDA_HEADERS_PRESENT)" = "0" ]; then \
-		echo "❌ Cannot build GPU version: CUDA headers not found"; \
-		echo "💡 Building CPU version instead..."; \
-		$(MAKE) cpu; \
-	elif [ "$(CUDA_LIBS_PRESENT)" = "0" ]; then \
-		echo "❌ Cannot build GPU version: CUDA libraries not found"; \
-		echo "💡 Building CPU version instead..."; \
-		$(MAKE) cpu; \
-	else \
-		echo "🔧 Building GPU version..."; \
-		$(MAKE) ENABLE_CUDA=1 OBJS="kthread.o bseq.o map.o trfx.o GetTopPeriods_cuda.o" \
-			CFLAGS="$(CFLAGS) -DHAVE_GPU" INCLUDES="-I$(CUDA_PATH)/include" $(PROG); \
-	fi
+# Build CPU version (explicitly specified) with clean
+.PHONY: cpu
+cpu: clean
+	@$(MAKE) -s $(PROG) RECURSIVE_MAKE=1 ENABLE_CUDA=0
+	@echo "✅ CPU version built successfully!"
 
-# Build CPU version (explicitly specified)
-cpu:
-	@echo "🔧 Building CPU version..."
-	@$(MAKE) ENABLE_CUDA=0 OBJS="kthread.o bseq.o map.o trfx.o" \
-		CFLAGS="$(filter-out -DHAVE_GPU,$(CFLAGS)) -DNO_GPU" INCLUDES="" $(PROG)
+# Build GPU version (explicitly specified)
+.PHONY: gpu
+gpu: $(PROG)
+	@echo "✅ GPU version built successfully!"
 
 # Create static library
 libtrfx.a: $(OBJS)
@@ -314,7 +338,7 @@ help:
 	@echo "Available commands:"
 	@echo "  make           - Auto-detect and build appropriate version"
 	@echo "  make gpu       - Force build GPU version (if available)"
-	@echo "  make cpu       - Force build CPU version"
+	@echo "  make cpu       - Force build CPU version (clean + rebuild)"
 	@echo "  make clean     - Clean build files"
 	@echo "  make info      - Show detailed build configuration"
 	@echo "  make gpu-info  - GPU system diagnostic information"
@@ -325,4 +349,4 @@ help:
 	@echo "  Operating System: $(UNAME_S)"
 	@echo "  CUDA Available: $(if $(filter 1,$(ENABLE_CUDA)),✅Yes,❌No)"
 
-.PHONY: all gpu cpu clean install info test benchmark help gpu-info
+.PHONY: all clean install info test benchmark help gpu-info cpu gpu
