@@ -133,7 +133,9 @@ Modulo Operation Replacement: Conditional logic for expensive divisions
 
 
 3. Hybrid CPU/GPU Acceleration
-Smart Workload Distribution: Sequences >4000bp automatically routed to GPU
+Smart Workload Distribution: 
+
+Sequences >4000bp automatically routed to GPU
 
 Shared Memory Optimization: Local histogram accumulation reduces global memory contention
 
