@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
         .PM = 80,
         .PI = 10,
         .minscore = 30, //30
-        .maxperiod = 2000,
+        .maxperiod = 500,
         .masked = 0,
         .redundoff = 0, 
         .datafile = 0,
