@@ -106,7 +106,7 @@ Simply replace your_sequence.fasta with your actual FASTA file path.​ The comp
 | `-k INT` | Match probability (75 or 80) | 80 |
 | `-i INT` | Indel probability (10 or 20) | 10 |
 | `-s INT` | Minimum alignment score to report (30 or 50)  | 30 |
-| `-p INT` | Maximum period size to report [1-2000] | 2000 |
+| `-p INT` | Maximum period size to report [1-2000] | 500 |
 | `-l INT` | Maximum TR length expected (in millions) | 12 |
 | `-t INT` | Number of threads | 8 |
 
