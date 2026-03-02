@@ -1622,196 +1622,92 @@ static inline void find_max_base(int a, int c, int g, int t, int *max, char *max
 	}
 }
 
-void get_consensus(int patternlength, thread_local_var_struct *pthread_local_var)
-{
-	pairalign *pAlignPair = &pthread_local_var->AlignPair;
-	cons_data *Consensus = &pthread_local_var->Consensus;
-	const int array_size = 2 * MAXPATTERNSIZECONSTANT + 1;
 
-	// 直接引用数组（不再加 restrict）
-	int *A_arr = Consensus->A;
-	int *C_arr = Consensus->C;
-	int *G_arr = Consensus->G;
-	int *T_arr = Consensus->T;
-	int *dash_arr = Consensus->dash;
-	int *insert_arr = Consensus->insert;
-	int *total_arr = Consensus->total;
-	unsigned char *pattern_arr = Consensus->pattern;
 
-	// 批量清零
-	const size_t bytes = array_size * sizeof(int);
-	memset(A_arr, 0, bytes);
-	memset(C_arr, 0, bytes);
-	memset(G_arr, 0, bytes);
-	memset(T_arr, 0, bytes);
-	memset(dash_arr, 0, bytes);
-	memset(insert_arr, 0, bytes);
-	memset(total_arr, 0, bytes);
 
-	// 初始化 pattern 为 DASH
-	for (int c = 0; c < array_size; c++)
-	{
-		pattern_arr[c] = DASH;
-	}
+void get_consensus(int patternlength, thread_local_var_struct *pthread_local_var) {
+    int c, lastindex, j, i, max;
+    char maxchar;
+    pairalign *pAlignPair = &pthread_local_var->AlignPair;
+    cons_data *Consensus = &pthread_local_var->Consensus;
+    int array_size = 2 * MAXPATTERNSIZECONSTANT + 1;
 
-	if (pAlignPair->length == 0)
-	{
-		pthread_local_var->ConsClasslength = 0;
-		return;
-	}
+    // 使用 memset 初始化数组
+    memset(Consensus->A, 0, array_size * sizeof(int));
+    memset(Consensus->C, 0, array_size * sizeof(int));
+    memset(Consensus->G, 0, array_size * sizeof(int));
+    memset(Consensus->T, 0, array_size * sizeof(int));
+    memset(Consensus->dash, 0, array_size * sizeof(int));
+    memset(Consensus->insert, 0, array_size * sizeof(int));
+    memset(Consensus->total, 0, array_size * sizeof(int));
+    
+    // 初始化 pattern 数组
+    for (c = 0; c <= 2 * MAXPATTERNSIZECONSTANT; c++) {
+        Consensus->pattern[c] = DASH;
+    }
 
-	int lastindex = -1;
-	int i = 1;
-	const int len = pAlignPair->length;
+    lastindex = -1;
+    i = 1;
+    while (i <= pAlignPair->length) {
+        if (pAlignPair->indexsecnd[i] != lastindex) {
+            switch (pAlignPair->textprime[i]) {
+                case 'A': Consensus->A[2 * pAlignPair->indexsecnd[i] + 1]++; break;
+                case 'C': Consensus->C[2 * pAlignPair->indexsecnd[i] + 1]++; break;
+                case 'G': Consensus->G[2 * pAlignPair->indexsecnd[i] + 1]++; break;
+                case 'T': Consensus->T[2 * pAlignPair->indexsecnd[i] + 1]++; break;
+                case DASH: Consensus->dash[2 * pAlignPair->indexsecnd[i] + 1]++; break;
+            }
+            if (lastindex != -1) {
+                int idx = (pAlignPair->indexsecnd[i] == patternlength - 1) ? 0 : (2 * pAlignPair->indexsecnd[i] + 2);
+                Consensus->total[idx]++;
+            }
+            lastindex = pAlignPair->indexsecnd[i];
+            i++;
+        } else {
+            int base_idx = 2 * pAlignPair->indexsecnd[i];
+            Consensus->insert[base_idx]++;
+            while (i <= pAlignPair->length && pAlignPair->indexsecnd[i] == lastindex) {
+                switch (pAlignPair->textprime[i]) {
+                    case 'A': Consensus->A[base_idx]++; break;
+                    case 'C': Consensus->C[base_idx]++; break;
+                    case 'G': Consensus->G[base_idx]++; break;
+                    case 'T': Consensus->T[base_idx]++; break;
+                    case DASH: Consensus->dash[base_idx]++; break;
+                }
+                i++;
+            }
+        }
+    }
 
-	// 单独处理第一个元素
-	int idx_secnd = pAlignPair->indexsecnd[i];
-	unsigned char text_prime = pAlignPair->textprime[i];
-	int pos = 2 * idx_secnd + 1;
+    for (i = 1; i <= 2 * patternlength; i += 2) {
+        max = Consensus->dash[i];
+        maxchar = DASH;
+        if (max < Consensus->A[i]) { max = Consensus->A[i]; maxchar = 'A'; }
+        if (max < Consensus->C[i]) { max = Consensus->C[i]; maxchar = 'C'; }
+        if (max < Consensus->G[i]) { max = Consensus->G[i]; maxchar = 'G'; }
+        if (max < Consensus->T[i]) { max = Consensus->T[i]; maxchar = 'T'; }
+        Consensus->pattern[i] = maxchar;
+    }
 
-	switch (text_prime)
-	{
-	case 'A':
-		A_arr[pos]++;
-		break;
-	case 'C':
-		C_arr[pos]++;
-		break;
-	case 'G':
-		G_arr[pos]++;
-		break;
-	case 'T':
-		T_arr[pos]++;
-		break;
-	default:
-		dash_arr[pos]++;
-		break;
-	}
-	lastindex = idx_secnd;
-	i++;
+    for (i = 0; i <= 2 * patternlength; i += 2) {
+        if (Consensus->total[i] != 0 && (2 * Consensus->insert[i] >= Consensus->total[i])) {
+            find_max_base(Consensus->A[i], Consensus->C[i], Consensus->G[i], Consensus->T[i], &max, &maxchar);
+        } else {
+            maxchar = DASH;
+        }
+        Consensus->pattern[i] = maxchar;
+    }
 
-	// 主循环
-	while (i <= len)
-	{
-		idx_secnd = pAlignPair->indexsecnd[i];
-		text_prime = pAlignPair->textprime[i];
-
-		if (idx_secnd != lastindex)
-		{
-			pos = 2 * idx_secnd + 1;
-			switch (text_prime)
-			{
-			case 'A':
-				A_arr[pos]++;
-				break;
-			case 'C':
-				C_arr[pos]++;
-				break;
-			case 'G':
-				G_arr[pos]++;
-				break;
-			case 'T':
-				T_arr[pos]++;
-				break;
-			default:
-				dash_arr[pos]++;
-				break;
-			}
-
-			int total_idx = (idx_secnd == patternlength - 1) ? 0 : (2 * idx_secnd + 2);
-			total_arr[total_idx]++;
-			lastindex = idx_secnd;
-			i++;
-		}
-		else
-		{
-			int base_idx = 2 * idx_secnd;
-			insert_arr[base_idx]++;
-
-			// ✅ 修复：使用 while 而非 do-while，避免越界
-			while (i <= len && pAlignPair->indexsecnd[i] == lastindex)
-			{
-				text_prime = pAlignPair->textprime[i];
-				switch (text_prime)
-				{
-				case 'A':
-					A_arr[base_idx]++;
-					break;
-				case 'C':
-					C_arr[base_idx]++;
-					break;
-				case 'G':
-					G_arr[base_idx]++;
-					break;
-				case 'T':
-					T_arr[base_idx]++;
-					break;
-				default:
-					dash_arr[base_idx]++;
-					break;
-				}
-				i++;
-			}
-		}
-	}
-
-	// 构建共识序列
-	int max;
-	char maxchar;
-
-	// 奇数索引
-	for (int k = 1; k <= 2 * patternlength; k += 2)
-	{
-		max = dash_arr[k];
-		maxchar = DASH;
-		if (A_arr[k] > max)
-		{
-			max = A_arr[k];
-			maxchar = 'A';
-		}
-		if (C_arr[k] > max)
-		{
-			max = C_arr[k];
-			maxchar = 'C';
-		}
-		if (G_arr[k] > max)
-		{
-			max = G_arr[k];
-			maxchar = 'G';
-		}
-		if (T_arr[k] > max)
-		{
-			max = T_arr[k];
-			maxchar = 'T';
-		}
-		pattern_arr[k] = maxchar;
-	}
-
-	// 偶数索引
-	for (int k = 0; k <= 2 * patternlength; k += 2)
-	{
-		if (total_arr[k] > 0 && 2 * insert_arr[k] >= total_arr[k])
-		{
-			find_max_base(A_arr[k], C_arr[k], G_arr[k], T_arr[k], &max, &maxchar);
-			pattern_arr[k] = maxchar;
-		}
-		else
-		{
-			pattern_arr[k] = DASH;
-		}
-	}
-
-	// 压缩
-	int j = 0;
-	for (int k = 0; k <= 2 * patternlength; k++)
-	{
-		if (pattern_arr[k] != DASH)
-		{
-			pattern_arr[j++] = pattern_arr[k];
-		}
-	}
-	pthread_local_var->ConsClasslength = j;
+    j = 0;
+    for (i = 0; i <= 2 * patternlength; i++) {
+        if (Consensus->pattern[i] != DASH) {
+            Consensus->pattern[j++] = Consensus->pattern[i];
+        }
+    }
+    pthread_local_var->ConsClasslength = j;
 }
+
+
 
 distancelist *new_distancelist(thread_local_var_struct *pthread_local_var, const readonly_vars_struct *restrict ro_vars)
 {
@@ -2518,255 +2414,329 @@ void printECtoBuffer(char *trg, int start, int width, thread_local_var_struct *p
 	return;
 }
 
-Result get_statistics(thread_local_var_struct *pthread_local_var, Result myResult, const readonly_vars_struct *restrict ro_vars, int index)
+
+Result get_statistics(thread_local_var_struct *pthread_local_var, Result myResult, 
+                           const readonly_vars_struct *restrict ro_vars, int index)
 {
-	// 缓存频繁访问的指针和变量
-	const int consensussize = pthread_local_var->Classlength;
-	pairalign *pAlignPair = &pthread_local_var->AlignPair;
-	const int pAlignPair_length = pAlignPair->length;
-	int *Statistics_Distance = pthread_local_var->Statistics_Distance;
-	int maxdistance_val = pthread_local_var->maxdistance;
+    // 缓存频繁访问的指针和变量
+    const int consensussize = pthread_local_var->Classlength;
+    pairalign *pAlignPair = &pthread_local_var->AlignPair;
+    const int pAlignPair_length = pAlignPair->length;
+    int *Statistics_Distance = pthread_local_var->Statistics_Distance;
+    int maxdistance_val = pthread_local_var->maxdistance;
 
-	char *textsecnd = pAlignPair->textsecnd;
-	char *textprime = pAlignPair->textprime;
-	int *indexsecnd = pAlignPair->indexsecnd;
-	int *indexprime = pAlignPair->indexprime;
+    char *textsecnd = pAlignPair->textsecnd;
+    char *textprime = pAlignPair->textprime;
+    int *indexsecnd = pAlignPair->indexsecnd;
+    int *indexprime = pAlignPair->indexprime;
 
-	int match = 0, mismatch = 0, indel = 0;
-	int mindistance = consensussize, maxdistance = consensussize;
-	int d, best_match_distance = 0, best_match_count = 0;
-	int i, count;
-	double diversity[4] = {0}, entropy = 0.0;
-	int ACGTcount[4] = {0}; // A, C, G, T
-	const int startECpos = indexsecnd[pAlignPair_length];
+    int match = 0, mismatch = 0, indel = 0;
+    int mindistance = consensussize, maxdistance = consensussize;
+    int d, best_match_distance = 0, best_match_count = 0;
+    int i, count = 0;
+    double diversity[4] = {0}, entropy = 0.0;
+    int ACGTcount[4] = {0}; // A, C, G, T
+    const int startECpos = indexsecnd[pAlignPair_length];
 
-	// 计算Statistics_Distance数组的有效长度
-	int row = maxdistance_val + d_range(maxdistance_val, ro_vars);
-	if (row <= 0)
-	{
-		trf_message("Invalid row value in get_statistics2");
-		return myResult;
-	}
-	memset(Statistics_Distance + 1, 0, row * sizeof(int));
+    // 计算Statistics_Distance数组的有效长度
+    int row = maxdistance_val + d_range(maxdistance_val, ro_vars);
+    if (row <= 0)
+    {
+        trf_message("\nError in statistics: Invalid row value");
+        exit(-10);
+    }
+    memset(Statistics_Distance + 1, 0, row * sizeof(int));
 
-	// 初始化lp和rp指针
-	int lp = 1, rp = 2;
-	while (lp <= pAlignPair_length && textsecnd[lp] == '-')
-		lp++;
-	if (lp > pAlignPair_length)
-	{
-		trf_message("Initial left pointer exceeds pAlignPair_length");
-		return myResult;
-	}
-	while (rp <= pAlignPair_length && indexsecnd[rp] != indexsecnd[lp])
-		rp++;
-	if (rp > pAlignPair_length)
-	{
-		trf_message("Initial right pointer exceeds pAlignPair_length");
-		return myResult;
-	}
-	while (rp <= pAlignPair_length && textsecnd[rp] == '-')
-		rp++;
-	if (rp > pAlignPair_length || indexsecnd[lp] != indexsecnd[rp])
-	{
-		trf_message("Index mismatch in initial pointers");
-		return myResult;
-	}
+    // 初始化lp和rp指针 - 保持与原始版本相同的逻辑
+    int lp = 1;
+    while (textsecnd[lp] == '-')
+    {
+        lp++;
+        if (lp > pAlignPair_length)
+        {
+            trf_message("\nError in statistics.");
+            trf_message("\nInitial left pointer exceeds pAlignPair_length while");
+            trf_message("\nlooking for first non -");
+            exit(-10);
+        }
+    }
+    
+    int rp = lp + 1;
+    if (rp > pAlignPair_length)
+    {
+        trf_message("\nError in statistics.");
+        trf_message("\nInitial right pointer exceeds pAlignPair_length");
+        exit(-10);
+    }
+    
+    while (indexsecnd[rp] != indexsecnd[lp])
+    {
+        rp++;
+        if (rp > pAlignPair_length)
+        {
+            trf_message("\nError in statistics.");
+            trf_message("\nInitial right pointer exceeds pAlignPair_length while");
+            trf_message("\nlooking for indexsecnd[lp]");
+            exit(-10);
+        }
+    }
+    
+    while (textsecnd[rp] == '-')
+    {
+        rp++;
+        if (rp > pAlignPair_length)
+        {
+            trf_message("\nError in statistics.");
+            trf_message("\nInitial right pointer exceeds pAlignPair_length while");
+            trf_message("\nlooking for first non -");
+            exit(-10);
+        }
+    }
+    
+    if (indexsecnd[lp] != indexsecnd[rp])
+    {
+        trf_message("\nError in statistics.");
+        trf_message("\nInitial left pointer index not the same as");
+        trf_message("\ninitial right pointer index");
+        exit(-10);
+    }
 
-	// 主循环处理比对结果
-	while (rp <= pAlignPair_length && lp < rp)
-	{
-		char c_lp = textsecnd[lp], c_rp = textsecnd[rp];
-		char p_lp = textprime[lp], p_rp = textprime[rp];
+    // 主循环处理比对结果 - 保持原始版本的逻辑结构
+    while ((rp <= pAlignPair_length) && (lp < rp))
+    {
+        char c_lp = textsecnd[lp];
+        char c_rp = textsecnd[rp];
+        char p_lp = textprime[lp];
+        char p_rp = textprime[rp];
 
-		if (c_lp != '-' && c_rp != '-')
-		{
-			if (p_lp != '-' && p_rp != '-')
-			{
-				if (indexsecnd[lp] != indexsecnd[rp])
-				{
-					trf_message("Index mismatch during match/mismatch check");
-					return myResult;
-				}
-				if (p_lp == p_rp)
-				{
-					match++;
-					d = abs(indexprime[rp] - indexprime[lp]);
-					if (d < 4 * maxdistance_val)
-					{
-						Statistics_Distance[d]++;
-						mindistance = (d < mindistance) ? d : mindistance;
-						maxdistance = (d > maxdistance) ? d : maxdistance;
-					}
-				}
-				else
-				{
-					mismatch++;
-				}
-				lp++, rp++;
-			}
-			else if (p_lp == '-' && p_rp == '-')
-			{
-				if (indexsecnd[lp] != indexsecnd[rp])
-				{
-					trf_message("Index mismatch during do nothing");
-					return myResult;
-				}
-				lp++, rp++;
-			}
-			else
-			{
-				if (indexsecnd[lp] != indexsecnd[rp])
-				{
-					trf_message("Index mismatch during indel");
-					return myResult;
-				}
-				indel++;
-				lp++, rp++;
-			}
-		}
-		else if (c_lp == '-' && c_rp == '-')
-		{
-			if (p_lp == p_rp)
-			{
-				match++;
-				d = abs(indexprime[rp] - indexprime[lp]);
-				if (d < 4 * maxdistance_val)
-				{
-					Statistics_Distance[d]++;
-					mindistance = (d < mindistance) ? d : mindistance;
-					maxdistance = (d > maxdistance) ? d : maxdistance;
-				}
-			}
-			else
-			{
-				mismatch++;
-			}
-			lp++, rp++;
-		}
-		else if (c_lp == '-')
-		{
-			indel++;
-			lp++;
-		}
-		else if (c_rp == '-')
-		{
-			indel++;
-			rp++;
-		}
-	}
+        if ((c_lp != '-') && (c_rp != '-'))
+        {
+            if ((p_lp != '-') && (p_rp != '-'))
+            {
+                if (indexsecnd[lp] != indexsecnd[rp])
+                {
+                    trf_message("\nError in statistics.");
+                    trf_message("\nLeft pointer index not the same as right pointer index");
+                    trf_message("\non match or mismatch when nothing is dash.");
+                    trf_message("\nindexsecnd[%d]: %d, indexprime[%d]: %d", lp, indexsecnd[lp], lp, indexprime[lp]);
+                    trf_message("\nindexsecnd[%d]: %d, indexprime[%d]: %d", rp, indexsecnd[rp], rp, indexprime[rp]);
+                    exit(-10);
+                }
+                
+                if (p_lp == p_rp)
+                {
+                    match++;
+                    d = indexprime[rp] - indexprime[lp];
+                    if (d < 0) d = -d;
 
-	if (lp >= rp)
-	{
-		trf_message("Left pointer >= right pointer");
-		return myResult;
-	}
+                    /* protect for memory override January 08, 2003 */
+                    if (d < (4 * maxdistance_val))
+                    {
+                        Statistics_Distance[d]++;
+                        if (d < mindistance) mindistance = d;
+                        if (d > maxdistance) maxdistance = d;
+                    }
+                }
+                else
+                {
+                    mismatch++;
+                }
+                lp++; rp++;
+            }
+            else if ((p_lp == '-') && (p_rp == '-'))
+            {
+                /* do nothing */
+                if (indexsecnd[lp] != indexsecnd[rp])
+                {
+                    trf_message("\nError in statistics.");
+                    trf_message("\nLeft pointer index not the same as right pointer index");
+                    trf_message("\non do nothing.\nlp: %d,  rp: %d", lp, rp);
+                    exit(-10);
+                }
+                lp++; rp++;
+            }
+            else if ((p_lp == '-') || (p_rp == '-'))
+            {
+                if (indexsecnd[lp] != indexsecnd[rp])
+                {
+                    trf_message("\nError in statistics.");
+                    trf_message("\nLeft pointer index not the same as right pointer index");
+                    trf_message("\non indel caused by dash in textprime.");
+                    trf_message("\nindexsecnd[%d]: %d, indexprime[%d]: %d", lp, indexsecnd[lp], lp, indexprime[lp]);
+                    trf_message("\nindexsecnd[%d]: %d, indexprime[%d]: %d", rp, indexsecnd[rp], rp, indexprime[rp]);
+                    exit(-10);
+                }
+                indel++;
+                lp++; rp++;
+            }
+        }
+        else if ((c_lp == '-') && (c_rp == '-'))
+        {
+            if (indexsecnd[lp] != indexsecnd[rp])
+            {
+                trf_message("\nError in statistics.");
+                trf_message("\nLeft pointer index not the same as right pointer index");
+                trf_message("\non match or mismatch when both secnd are dash.");
+                trf_message("\nlp: %d,  rp: %d", lp, rp);
+                exit(-10);
+            }
+            
+            if (p_lp == p_rp)
+            {
+                match++;
+                d = indexprime[rp] - indexprime[lp];
+                if (d < 0) d = -d;
 
-	int total = match + mismatch + indel;
+                /* protect for memory override January 08, 2003 */
+                if (d < (4 * maxdistance_val))
+                {
+                    Statistics_Distance[d]++;
+                    if (d < mindistance) mindistance = d;
+                    if (d > maxdistance) maxdistance = d;
+                }
+            }
+            else
+            {
+                mismatch++;
+            }
+            lp++; rp++;
+        }
+        else if (c_lp == '-')
+        {
+            indel++;
+            lp++;
+        }
+        else if (c_rp == '-')
+        {
+            indel++;
+            rp++;
+        }
+    }
 
-	// 寻找最佳匹配距离
-	for (int g = mindistance; g <= maxdistance; g++)
-	{
-		if (Statistics_Distance[g] > best_match_count)
-		{
-			best_match_count = Statistics_Distance[g];
-			best_match_distance = g;
-		}
-	}
+    if (lp >= rp)
+    {
+        trf_message("\nError in statistics.");
+        trf_message("\nLeft pointer >= right pointer");
+        exit(-10);
+    }
 
-	// 统计ACGT分布
-	for (i = 1; i <= pAlignPair_length; i++)
-	{
-		char c = textprime[i];
-		if (c != '-')
-		{
-			switch (c)
-			{
-			case 'A':
-				ACGTcount[0]++;
-				break;
-			case 'C':
-				ACGTcount[1]++;
-				break;
-			case 'G':
-				ACGTcount[2]++;
-				break;
-			case 'T':
-				ACGTcount[3]++;
-				break;
-			}
-		}
-	}
-	count = ACGTcount[0] + ACGTcount[1] + ACGTcount[2] + ACGTcount[3];
-	if (count > 0)
-	{
-		for (int idx = 0; idx < 4; idx++)
-		{
-			diversity[idx] = (double)ACGTcount[idx] / count;
-		}
-		const double log2 = log(2.0);
-		for (int idx = 0; idx < 4; idx++)
-		{
-			if (diversity[idx] > 0)
-			{
-				entropy -= diversity[idx] * log(diversity[idx]) / log2;
-			}
-		}
-	}
+    int total = match + mismatch + indel;
 
-	// 创建链表节点
-	Index_List *newptr = (Index_List *)aligned_alloc(8, sizeof(Index_List));
-	if (!newptr)
-	{
-		FreeList(myResult.GlobalIndexList);
-		myResult.GlobalIndexList = NULL;
-		return myResult;
-	}
-	pthread_local_var->counterInSeq++;
+    // 寻找最佳匹配距离
+    for (int g = mindistance; g <= maxdistance; g++)
+    {
+        if (Statistics_Distance[g] != 0 && Statistics_Distance[g] > best_match_count)
+        {
+            best_match_count = Statistics_Distance[g];
+            best_match_distance = g;
+        }
+    }
 
-	newptr->count = pthread_local_var->counterInSeq;
-	sprintf(newptr->ref, "%d--%d,%d,%3.1f,%d,%d",
-			indexprime[pAlignPair_length], indexprime[1], best_match_distance,
-			pthread_local_var->Copynumber, consensussize, (int)pthread_local_var->OUTPUTcount);
+    // 统计ACGT分布 - 使用优化后的4元素数组
+    for (i = 1; i <= pAlignPair_length; i++)
+    {
+        char c = textprime[i];
+        if (c != '-')
+        {
+            switch (c)
+            {
+            case 'A':
+                ACGTcount[0]++;
+                break;
+            case 'C':
+                ACGTcount[1]++;
+                break;
+            case 'G':
+                ACGTcount[2]++;
+                break;
+            case 'T':
+                ACGTcount[3]++;
+                break;
+            }
+            count++;
+        }
+    }
+    
+    if (count > 0)
+    {
+        // 计算百分比分布
+        diversity[0] = (double)ACGTcount[0] / count;
+        diversity[1] = (double)ACGTcount[1] / count;
+        diversity[2] = (double)ACGTcount[2] / count;
+        diversity[3] = (double)ACGTcount[3] / count;
+        
+        // 熵计算
+        const double log2 = log(2.0);
+        for (int idx = 0; idx < 4; idx++)
+        {
+            double p = diversity[idx];
+            if (p > 0.0)
+            {
+                entropy -= p * (log(p) / log2);
+            }
+        }
+    }
+    else
+    {
+        trf_message("\nError in statistics: ACGTcount=0");
+    }
 
-	newptr->first = indexprime[pAlignPair_length];
-	newptr->last = indexprime[1];
-	newptr->period = best_match_distance;
-	newptr->copies = pthread_local_var->Copynumber;
-	newptr->size = consensussize;
-	newptr->matches = (int)(100.0 * match / total);
-	newptr->indels = (int)(100.0 * indel / total);
-	newptr->score = pAlignPair->score;
-	newptr->acount = (int)(100.0 * ACGTcount[0] / count);
-	newptr->ccount = (int)(100.0 * ACGTcount[1] / count);
-	newptr->gcount = (int)(100.0 * ACGTcount[2] / count);
-	newptr->tcount = (int)(100.0 * ACGTcount[3] / count);
-	newptr->entropy = entropy;
+    // 创建链表节点
+    Index_List *newptr = (Index_List *)aligned_alloc(8, sizeof(Index_List));
+    if (!newptr)
+    {
+        FreeList(myResult.GlobalIndexList);
+        myResult.GlobalIndexList = NULL;
+        myResult.GlobalIndexListTail = NULL;
+        return myResult;
+    }
+    pthread_local_var->counterInSeq++;
 
-	// 分配模式字符串
-	newptr->pattern = (char *)malloc((consensussize + 1) * sizeof(char));
-	if (!newptr->pattern)
-	{
-		free(newptr);
-		FreeList(myResult.GlobalIndexList);
-		myResult.GlobalIndexList = NULL;
-		return myResult;
-	}
-	printECtoBuffer(newptr->pattern, startECpos, consensussize, pthread_local_var);
+    newptr->count = pthread_local_var->counterInSeq;
+    sprintf(newptr->ref, "%d--%d,%d,%3.1f,%d,%d",
+            indexprime[pAlignPair_length], indexprime[1], best_match_distance,
+            pthread_local_var->Copynumber, consensussize, (int)pthread_local_var->OUTPUTcount);
 
-	// 无需加锁，因为每个线程的链表是私有的
-	if (!myResult.GlobalIndexList)
-	{
-		myResult.GlobalIndexList = myResult.GlobalIndexListTail = newptr;
-	}
-	else
-	{
-		myResult.GlobalIndexListTail->next = newptr;
-		myResult.GlobalIndexListTail = newptr;
-	}
-	newptr->next = NULL;
+    newptr->first = indexprime[pAlignPair_length];
+    newptr->last = indexprime[1];
+    newptr->period = best_match_distance;
+    newptr->copies = pthread_local_var->Copynumber;
+    newptr->size = consensussize;
+    newptr->matches = (int)(100.0 * match / total);
+    newptr->indels = (int)(100.0 * indel / total);
+    newptr->score = pAlignPair->score;
+    newptr->acount = (int)(100.0 * ACGTcount[0] / count);
+    newptr->ccount = (int)(100.0 * ACGTcount[1] / count);
+    newptr->gcount = (int)(100.0 * ACGTcount[2] / count);
+    newptr->tcount = (int)(100.0 * ACGTcount[3] / count);
+    newptr->entropy = entropy;
 
-	return myResult;
+    // 分配模式字符串
+    newptr->pattern = (char *)malloc((consensussize + 1) * sizeof(char));
+    if (!newptr->pattern)
+    {
+        free(newptr);
+        FreeList(myResult.GlobalIndexList);
+        myResult.GlobalIndexList = NULL;
+        myResult.GlobalIndexListTail = NULL;
+        return myResult;
+    }
+    printECtoBuffer(newptr->pattern, startECpos, consensussize, pthread_local_var);
+
+    // 链表操作
+    if (!myResult.GlobalIndexList)
+    {
+        myResult.GlobalIndexList = myResult.GlobalIndexListTail = newptr;
+        newptr->next = NULL;
+    }
+    else
+    {
+        myResult.GlobalIndexListTail->next = newptr;
+        myResult.GlobalIndexListTail = newptr;
+        newptr->next = NULL;
+    }
+
+    return myResult;
 }
 
 /*******************************************************************/
