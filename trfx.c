@@ -158,8 +158,8 @@ int main(int argc, char *argv[])
             case 's': opt.minscore = atoi(optarg); break;
             case 'P': opt.maxperiod = atoi(optarg); break;
             case 'p': opt.maxperiod = atoi(optarg); break;
-            case 'L': opt.maxwraplength = max(opt.maxwraplength, atoi(optarg) * 1000000); break;
-            case 'l': opt.maxwraplength = max(opt.maxwraplength, atoi(optarg) * 1000000); break;
+            case 'L': opt.maxwraplength = atoi(optarg) * 1000000; break;
+            case 'l': opt.maxwraplength =  atoi(optarg) * 1000000; break;
             case 'T': opt.n_threads = atoi(optarg); break;
             case 't': opt.n_threads = atoi(optarg); break;
             case 'M': opt.masked = 1; break;
